@@ -1,0 +1,9 @@
+{
+    "target_overrides": {
+        "CY8CKIT_062_BLE": {
+            "target.features": ["BLE"],
+            "target.extra_labels_add": ["PSOC6BLE","CORDIO"],
+            "platform.default-serial-baud-rate": 115200
+        }
+    }
+}
