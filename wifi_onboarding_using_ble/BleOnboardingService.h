@@ -27,35 +27,45 @@
 using mbed::callback;
 
 /**
- * BLE On-boarding service.
- *
+ * CA BLE On-boarding service.
+ * CA_BLE_SERVICE
  * @par usage
  *
  * When this class is instantiated, it adds a custom service in the GattServer.
  */
-class BleOnboardingService {
-    typedef BleOnboardingService Self;
+class caBleService {
+    typedef caBleService Self;
 
 public:
-    BleOnboardingService() :
-        _p_ssid_char("485f4145-52b9-4644-af1f-7a6b9322490f", 0),
-        _p_pwd_char("0a924ca7-87cd-4699-a3bd-abdcd9cf126a", 0),
-        _s_ssid_char("8dd6a1b7-bc75-4741-8a26-264af75807de", 0),
-		_s_pwd_char("8dd6a1e7-bc75-4741-8a26-264af75807de", 0),
-        _ble_onboarding_service(
-            /* uuid */ "51311102-030e-485f-b122-f8f381aa84ed",
-            /* characteristics */ _ble_onboarding_characteristics,
-            /* numCharacteristics */ sizeof(_ble_onboarding_characteristics) /
-                                     sizeof(_ble_onboarding_characteristics[0])
+    caBleService() :
+        _cirrent_device_info_char("00004A01-0000-1000-8000-C4f78190bfd8", 0),
+        _seconds_since_power_on_char("00004A0A-0000-1000-8000-C4f78190bfd8", 0),
+        _ca_indicate_char("00004A0B-0000-1000-8000-C4f78190bfd8", 0),
+		_ca_notify_char("00004A0C-0000-1000-8000-C4f78190bfd8", 0),
+        _join_private_network_char("00004A0D-0000-1000-8000-C4f78190bfd8", 0),
+        _id_yourself_char("00004A0E-0000-1000-8000-C4f78190bfd8", 0),
+		_status_notify_char("00004A0F-0000-1000-8000-C4f78190bfd8", 0),
+        _ca_ble_onboarding_service(
+        	/* uuid */ 	"00003801-0000-1000-8000-C4f78190bfd8",
+            /* characteristics */ _ca_ble_onboarding_characteristics,
+            /* numCharacteristics */ sizeof(_ca_ble_onboarding_characteristics) /
+                                     sizeof(_ca_ble_onboarding_characteristics[0])
         ),
         _server(NULL),
         _event_queue(NULL)
     {
+
+
         // update internal pointers (value, descriptors and characteristics array)
-        _ble_onboarding_characteristics[0] = &_p_ssid_char;
-        _ble_onboarding_characteristics[1] = &_p_pwd_char;
-        _ble_onboarding_characteristics[2] = &_s_ssid_char;
-        _ble_onboarding_characteristics[3] = &_s_pwd_char;
+    	_ca_ble_onboarding_characteristics[0] = &_cirrent_device_info_char;
+    	_ca_ble_onboarding_characteristics[1] = &_seconds_since_power_on_char;
+    	_ca_ble_onboarding_characteristics[2] = &_ca_indicate_char;
+    	_ca_ble_onboarding_characteristics[3] = &_ca_notify_char;
+    	_ca_ble_onboarding_characteristics[4] = &_join_private_network_char;
+    	_ca_ble_onboarding_characteristics[5] = &_id_yourself_char;
+    	_ca_ble_onboarding_characteristics[6] = &_status_notify_char;
+
+    	_seconds_since_power_on_char.setReadAuthorizationCallback(this,&Self::clientReadReqCb);
 
     }
 
@@ -67,46 +77,61 @@ public:
 
         // register the service
         printf("Adding Custom demo service\r\n");
-        ble_error_t err = _server->addService(_ble_onboarding_service);
+        ble_error_t err = _server->addService(_ca_ble_onboarding_service);
 
         if (err) {
-            printf("Error %u during demo service registration.\r\n", err);
+            printf("Error %u during ca service registration.\r\n", err);
             return;
         }
 
         // read write handler
+        _server->onDataSent(as_cb(&Self::when_data_sent));
         _server->onDataWritten(as_cb(&Self::when_data_written));
         _server->onDataRead(as_cb(&Self::when_data_read));
 
 
         // print the handles
-        printf("BLE on-boarding service registered\r\n");
-        printf("service handle: %u\r\n", _ble_onboarding_service.getHandle());
-        printf("\tPrimary SSID characteristic value handle %u\r\n", _p_ssid_char.getValueHandle());
-        printf("\tPrimary Password characteristic value handle %u\r\n", _p_pwd_char.getValueHandle());
-        printf("\tSecondary SSID characteristic value handle %u\r\n", _s_ssid_char.getValueHandle());
-        printf("\tSecondary Password characteristic value handle %u\r\n", _s_pwd_char.getValueHandle());
-
+        printf("Cirrent Agent Service registered\r\n");
+        printf("service handle: %u\r\n", _ca_ble_onboarding_service.getHandle());
+        for(uint8_t i=0;i<_ca_ble_onboarding_service.getCharacteristicCount();i++)
+        {
+        	GattCharacteristic *char1 = _ca_ble_onboarding_service.getCharacteristic(i);
+        	printf("\t Characteristic UUID = %u, Handle= %u\r\n",char1->getValueHandle() ,char1->getValueHandle());
+        }
     }
 
 private:
-
+    void clientReadReqCb(GattReadAuthCallbackParams* param)
+    {
+    	printf("Read Initiated for _seconds_since_power_on_char\r\n");
+    }
+    /**
+     * Handler called when a notification or an indication has been sent.
+     */
+    void when_data_sent(unsigned count)
+    {
+        printf("sent %u updates\r\n", count);
+    }
     /**
      * Handler called after an attribute has been written.
      */
     void when_data_written(const GattWriteCallbackParams *e)
     {
+    	bool enabled;
+    	uint8_t val= 0x12;
         printf("data written:\r\n");
         printf("\tconnection handle: %u\r\n", e->connHandle);
         printf("\tattribute handle: %u", e->handle);
-        if (e->handle == _p_ssid_char.getValueHandle()) {
-            printf(" (Primary SSID characteristic)\r\n");
-        } else if (e->handle == _p_pwd_char.getValueHandle()) {
-            printf(" (Primary Password characteristic)\r\n");
-        } else if (e->handle == _s_ssid_char.getValueHandle()) {
-            printf(" (Secondary SSID characteristic)\r\n");
-        } else if (e->handle == _s_pwd_char.getValueHandle()) {
-            printf(" (Secondary Password characteristic)\r\n");
+        if (e->handle == _ca_indicate_char.getValueHandle())
+        {
+            printf(" CA Indicate characteristic has  been written to by the Client \r\n");
+            _server->areUpdatesEnabled(_ca_indicate_char, &enabled);
+            if(enabled)
+            {
+            	printf(" _ca_indicate_char characteristic Indication are Enabled \r\n");
+            	_ca_indicate_char.set(*_server,val);
+            	printf(" _ca_indicate_char characteristic Updated \r\n");
+            }
         } else {
             printf("\r\n");
         }
@@ -130,21 +155,9 @@ private:
         printf("data read:\r\n");
         printf("\tconnection handle: %u\r\n", e->connHandle);
         printf("\tattribute handle: %u", e->handle);
-        if (e->handle == _p_ssid_char.getValueHandle()) {
-            printf(" (Primary SSID characteristic)\r\n");
-        } else if (e->handle == _p_pwd_char.getValueHandle()) {
-            printf(" (Primary Password characteristic)\r\n");
-        } else if (e->handle == _s_ssid_char.getValueHandle()) {
-            printf(" (Secondary SSID characteristic)\r\n");
-        } else if (e->handle == _s_pwd_char.getValueHandle()) {
-            printf(" (Secondary Password characteristic)\r\n");
-        } else {
-            printf("\r\n");
-        }
+        printf("\r\n");
+
     }
-
-
-private:
     /**
      * Helper that construct an event handler from a member function of this
      * instance.
@@ -155,17 +168,74 @@ private:
         return makeFunctionPointer(this, member);
     }
 
+    template<typename T>
+    class WriteIndicateCharacteristic : public GattCharacteristic {
+    public:
+    		WriteIndicateCharacteristic(const UUID & uuid, const T& initial_value) :
+            GattCharacteristic(
+                /* UUID */ uuid,
+                /* Initial value */ &_value,
+                /* Value size */ sizeof(_value),
+                /* Value capacity */ sizeof(_value),
+                /* Properties */ GattCharacteristic::BLE_GATT_CHAR_PROPERTIES_WRITE |
+                                 GattCharacteristic::BLE_GATT_CHAR_PROPERTIES_INDICATE,
+                /* Descriptors */ NULL,
+                /* Num descriptors */ 0,
+                /* variable len */ false
+            ),
+            _value(initial_value) {
+        }
+        ble_error_t get(GattServer &server, T& dst) const
+        {
+            uint16_t value_length = sizeof(dst);
+            return server.read(getValueHandle(), &dst, &value_length);
+        }
 
-    ReadWriteGattCharacteristic<uint32_t> _p_ssid_char;
-    ReadWriteGattCharacteristic<uint32_t> _p_pwd_char;
-    ReadWriteGattCharacteristic<uint32_t> _s_ssid_char;
-    ReadWriteGattCharacteristic<uint32_t> _s_pwd_char;
+        ble_error_t set(
+            GattServer &server, const T &value, bool local_only = false
+        ) const {
+            return server.write((GattAttribute::Handle_t)getValueHandle(), &value, sizeof(value), local_only);
+        }
+
+    private:
+        T _value;
+    };
+
+    template<typename T>
+    class NoPropertyCharacteristic : public GattCharacteristic {
+    public:
+    	NoPropertyCharacteristic(const UUID & uuid, const T& initial_value) :
+            GattCharacteristic(
+                /* UUID */ uuid,
+                /* Initial value */ &_value,
+                /* Value size */ sizeof(_value),
+                /* Value capacity */ sizeof(_value),
+                /* Properties */ GattCharacteristic::BLE_GATT_CHAR_PROPERTIES_NONE,
+                /* Descriptors */ NULL,
+                /* Num descriptors */ 0,
+                /* variable len */ false
+            ),
+            _value(initial_value) {
+        }
+
+    private:
+        T _value;
+    };
+
+    ReadOnlyGattCharacteristic<uint8_t> _cirrent_device_info_char;
+    ReadOnlyGattCharacteristic<uint8_t>_seconds_since_power_on_char;
+    WriteIndicateCharacteristic<uint8_t>_ca_indicate_char;
+    NoPropertyCharacteristic<uint8_t>_ca_notify_char;
+    WriteIndicateCharacteristic<uint8_t>_join_private_network_char;
+    WriteOnlyGattCharacteristic<uint8_t>_id_yourself_char;
+    ReadOnlyGattCharacteristic<uint8_t>_status_notify_char;
 
     // list of the characteristics of the ble_onboarding service
-    GattCharacteristic* _ble_onboarding_characteristics[4];
+
+    GattCharacteristic* _ca_ble_onboarding_characteristics[7];
 
     // demo service
-    GattService _ble_onboarding_service;
+    GattService _ca_ble_onboarding_service;
 
     GattServer* _server;
     events::EventQueue *_event_queue;

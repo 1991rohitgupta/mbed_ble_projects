@@ -102,13 +102,15 @@ void securitySetupCompletedCallback(Gap::Handle_t handle, SecurityManager::Secur
 int main() {
 
     stdio_uart_inited = false;
-
+    bool scEnabled=0;
     BLE &ble_interface = BLE::Instance();
     events::EventQueue event_queue;
-    BleOnboardingService demo_service;
-    BLEProcess ble_process(event_queue, ble_interface);
-
-    ble_process.on_init(callback(&demo_service, &BleOnboardingService::start));
+    caBleService ca_service_instance;
+    dummy a;
+    a.count =9;
+    BLEProcess ble_process(event_queue, ble_interface,a);
+    printf("%d\r\n",ble_process.d.count);
+    ble_process.on_init(callback(&ca_service_instance, &caBleService::start));
 
     // bind the event queue to the ble interface, initialize the interface
     // and start advertising
@@ -116,6 +118,7 @@ int main() {
 
     ble_interface.securityManager().onPasskeyDisplay(passkeyDisplayCallback);
     ble_interface.securityManager().onSecuritySetupCompleted(securitySetupCompletedCallback);
+    ble_interface.securityManager().getSecureConnectionsSupport(&scEnabled);
     // Process the event queue.
     event_queue.dispatch_forever();
 

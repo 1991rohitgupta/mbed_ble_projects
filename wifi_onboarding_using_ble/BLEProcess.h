@@ -30,6 +30,19 @@
 #include "ble/GapAdvertisingData.h"
 #include "ble/FunctionPointerWithContext.h"
 #include "mbed_config.h"
+
+class dummy {
+	public:
+		int count;
+
+		dummy() {
+            count = 5;}
+
+		dummy(int i) {
+			count = i;
+			}
+};
+
 /**
  * Handle initialization adn shutdown of the BLE Instance.
  *
@@ -43,10 +56,11 @@ public:
      *
      * Call start() to initiate ble processing.
      */
-    BLEProcess(events::EventQueue &event_queue, BLE &ble_interface) :
+    BLEProcess(events::EventQueue &event_queue, BLE &ble_interface, dummy &dum) :
         _event_queue(event_queue),
         _ble_interface(ble_interface),
-        _post_init_cb() {
+        _post_init_cb(),
+        d(dum){
     }
 
     ~BLEProcess()
@@ -139,7 +153,7 @@ private:
         bool enableBonding = false;
         bool requireMITM   = true;
 
-        _ble_interface.securityManager().init(enableBonding, requireMITM, SecurityManager::IO_CAPS_DISPLAY_ONLY);
+        _ble_interface.securityManager().init(enableBonding, requireMITM, SecurityManager::IO_CAPS_NONE);
 
 
         ble_error_t error = gap.setAdvertisingPayload(make_advertising_data());
@@ -220,6 +234,8 @@ private:
     events::EventQueue &_event_queue;
     BLE &_ble_interface;
     mbed::Callback<void(BLE&, events::EventQueue&)> _post_init_cb;
+public:
+    dummy d;
 };
 
 #endif /* GATT_SERVER_EXAMPLE_BLE_PROCESS_H_ */
